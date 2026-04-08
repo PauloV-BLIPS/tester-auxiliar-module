@@ -7,6 +7,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-08
+
 ### Alterado
 
 - Substituído uso de `String` por `char[]` + `snprintf` em todos os handlers HTTP para evitar fragmentação de heap.

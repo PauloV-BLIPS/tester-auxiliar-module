@@ -1,0 +1,21 @@
+# PlatformIO
+.pio/
+.vscode/
+.pioenvs/
+.piolibdeps/
+
+# Build
+build/
+
+# IDE
+*.swp
+*.swo
+*~
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets — nunca commitar credenciais reais
+# (edite WIFI_SSID/WIFI_PASSWORD antes de usar)

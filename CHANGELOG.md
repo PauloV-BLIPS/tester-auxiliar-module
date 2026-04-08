@@ -7,6 +7,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Alterado
+
+- Substituído uso de `String` por `char[]` + `snprintf` em todos os handlers HTTP para evitar fragmentação de heap.
+- Tamanho dos arrays `pinState`/`pinTimestamp` derivado de constante `NUM_PINS` em vez de magic number.
+- Mensagem de erro de pin inválido agora reflete os valores das constantes dinamicamente.
+
 ## [0.1.0] - 2026-04-08
 
 ### Adicionado

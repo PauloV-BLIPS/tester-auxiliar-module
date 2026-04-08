@@ -16,22 +16,22 @@ static const int PIN_MEM2  = 1;   // OUTPUT  — sinal de uso/telemetria
 static const int PIN_BLOCK = 4;   // INPUT_PULLUP — bloqueio do DUT
 
 // ── Estado dos pinos ───────────────────────────────────────────────
-static int      pinState[5];          // indice = numero do pino
-static unsigned long pinTimestamp[5];  // millis() da ultima mudanca
+static const int NUM_PINS = PIN_BLOCK + 1;
+static int           pinState[NUM_PINS];
+static unsigned long pinTimestamp[NUM_PINS];
 
 AsyncWebServer server(80);
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-static void sendJson(AsyncWebServerRequest *request, int code, const String &json) {
+static void sendJson(AsyncWebServerRequest *request, int code, const char *json) {
     request->send(code, "application/json", json);
 }
 
 static void sendError(AsyncWebServerRequest *request, int code, const char *msg) {
-    String json = "{\"error\":\"";
-    json += msg;
-    json += "\"}";
-    sendJson(request, code, json);
+    char buf[128];
+    snprintf(buf, sizeof(buf), "{\"error\":\"%s\"}", msg);
+    sendJson(request, code, buf);
 }
 
 // ── Setup WiFi ─────────────────────────────────────────────────────
@@ -70,14 +70,15 @@ static void setupServer() {
         }
         int pin = request->getParam("pin")->value().toInt();
         if (pin != PIN_MEM2 && pin != PIN_BLOCK) {
-            sendError(request, 400, "pin invalido, use 1 ou 4");
+            char err[64];
+            snprintf(err, sizeof(err), "pin invalido, use %d ou %d", PIN_MEM2, PIN_BLOCK);
+            sendError(request, 400, err);
             return;
         }
-        int val = digitalRead(pin);
-        String json = "{\"pin\":" + String(pin)
-                    + ",\"value\":" + String(val)
-                    + ",\"timestamp_ms\":" + String(pinTimestamp[pin])
-                    + "}";
+        char json[96];
+        snprintf(json, sizeof(json),
+                 "{\"pin\":%d,\"value\":%d,\"timestamp_ms\":%lu}",
+                 pin, pinState[pin], pinTimestamp[pin]);
         sendJson(request, 200, json);
     });
 
@@ -108,18 +109,18 @@ static void setupServer() {
             digitalWrite(pin, val);
             pinState[pin]     = val;
             pinTimestamp[pin]  = millis();
-            String json = "{\"pin\":" + String(pin)
-                        + ",\"value\":" + String(val)
-                        + "}";
+            char json[48];
+            snprintf(json, sizeof(json), "{\"pin\":%d,\"value\":%d}", pin, val);
             sendJson(request, 200, json);
         }
     );
 
     // GET /status
     server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
-        String json = "{\"heap\":" + String(ESP.getFreeHeap())
-                    + ",\"uptime_ms\":" + String(millis())
-                    + "}";
+        char json[64];
+        snprintf(json, sizeof(json),
+                 "{\"heap\":%u,\"uptime_ms\":%lu}",
+                 ESP.getFreeHeap(), millis());
         sendJson(request, 200, json);
     });
 

@@ -85,7 +85,9 @@ static void setupServer() {
     // POST /gpio/write  —  body: {"pin":N,"value":0|1}
     server.on("/gpio/write", HTTP_POST,
         [](AsyncWebServerRequest *request) {
-            // resposta enviada no onBody
+            if (!request->contentType().startsWith("application/json")) {
+                sendError(request, 400, "Content-Type: application/json obrigatorio");
+            }
         },
         NULL,
         [](AsyncWebServerRequest *request, uint8_t *data, size_t len,

@@ -7,6 +7,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Corrigido
+
+- `POST /gpio/write` agora retorna erro 400 quando `Content-Type: application/json` não é enviado, em vez de falhar silenciosamente.
+
 ## [0.1.2] - 2026-04-08
 
 ### Alterado

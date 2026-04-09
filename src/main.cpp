@@ -5,15 +5,15 @@
 #include <ArduinoJson.h>
 
 // ── Configuracao WiFi ──────────────────────────────────────────────
-static const char *WIFI_SSID     = "SEU_SSID";
-static const char *WIFI_PASSWORD = "SUA_SENHA";
+static const char *WIFI_SSID     = "POCOF5";
+static const char *WIFI_PASSWORD = "12345678";
 
 // ── mDNS ───────────────────────────────────────────────────────────
 static const char *MDNS_HOSTNAME = "neuronio-aux";
 
 // ── GPIOs ──────────────────────────────────────────────────────────
 static const int PIN_MEM2  = 1;   // OUTPUT  — sinal de uso/telemetria
-static const int PIN_BLOCK = 4;   // INPUT_PULLUP — bloqueio do DUT
+static const int PIN_BLOCK = 4;   // INPUT_PULLDOWN — bloqueio do DUT
 
 // ── Estado dos pinos ───────────────────────────────────────────────
 static const int NUM_PINS = PIN_BLOCK + 1;
@@ -96,7 +96,7 @@ static void setupServer() {
                 sendError(request, 400, "JSON invalido");
                 return;
             }
-            if (!doc.containsKey("pin") || !doc.containsKey("value")) {
+            if (!doc["pin"].is<int>() || !doc["value"].is<int>()) {
                 sendError(request, 400, "campos 'pin' e 'value' obrigatorios");
                 return;
             }
@@ -142,7 +142,7 @@ void setup() {
     // GPIOs
     pinMode(PIN_MEM2, OUTPUT);
     digitalWrite(PIN_MEM2, LOW);
-    pinMode(PIN_BLOCK, INPUT_PULLUP);
+    pinMode(PIN_BLOCK, INPUT_PULLDOWN);
 
     // Estado inicial
     pinState[PIN_MEM2]      = LOW;
@@ -156,10 +156,14 @@ void setup() {
 }
 
 void loop() {
-    // Monitora mudanca de estado no GPIO4
-    int current = digitalRead(PIN_BLOCK);
-    if (current != pinState[PIN_BLOCK]) {
-        pinState[PIN_BLOCK]    = current;
-        pinTimestamp[PIN_BLOCK] = millis();
+    // Monitora mudanca de estado no GPIO4 (polling a cada 10ms)
+    static unsigned long lastPoll = 0;
+    if (millis() - lastPoll >= 10) {
+        lastPoll = millis();
+        int current = digitalRead(PIN_BLOCK);
+        if (current != pinState[PIN_BLOCK]) {
+            pinState[PIN_BLOCK]    = current;
+            pinTimestamp[PIN_BLOCK] = millis();
+        }
     }
 }

@@ -3,6 +3,7 @@
 #include <ESPmDNS.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
+#include <gpio_logic.h>
 
 // ── Configuracao WiFi ──────────────────────────────────────────────
 static const char *WIFI_SSID     = "POCOF5";
@@ -11,14 +12,8 @@ static const char *WIFI_PASSWORD = "12345678";
 // ── mDNS ───────────────────────────────────────────────────────────
 static const char *MDNS_HOSTNAME = "neuronio-aux";
 
-// ── GPIOs ──────────────────────────────────────────────────────────
-static const int PIN_MEM2  = 1;   // OUTPUT  — sinal de uso/telemetria
-static const int PIN_BLOCK = 4;   // INPUT_PULLDOWN — bloqueio do DUT
-
 // ── Estado dos pinos ───────────────────────────────────────────────
-static const int NUM_PINS = PIN_BLOCK + 1;
-static int           pinState[NUM_PINS];
-static unsigned long pinTimestamp[NUM_PINS];
+static PinStateStore store;
 
 AsyncWebServer server(80);
 
@@ -30,7 +25,7 @@ static void sendJson(AsyncWebServerRequest *request, int code, const char *json)
 
 static void sendError(AsyncWebServerRequest *request, int code, const char *msg) {
     char buf[128];
-    snprintf(buf, sizeof(buf), "{\"error\":\"%s\"}", msg);
+    fmt_json_error(buf, sizeof(buf), msg);
     sendJson(request, code, buf);
 }
 
@@ -69,16 +64,14 @@ static void setupServer() {
             return;
         }
         int pin = request->getParam("pin")->value().toInt();
-        if (pin != PIN_MEM2 && pin != PIN_BLOCK) {
+        if (!pin_is_valid(pin)) {
             char err[64];
             snprintf(err, sizeof(err), "pin invalido, use %d ou %d", PIN_MEM2, PIN_BLOCK);
             sendError(request, 400, err);
             return;
         }
         char json[96];
-        snprintf(json, sizeof(json),
-                 "{\"pin\":%d,\"value\":%d,\"timestamp_ms\":%lu}",
-                 pin, pinState[pin], pinTimestamp[pin]);
+        fmt_json_read(json, sizeof(json), pin, store.value[pin], store.timestamp_ms[pin]);
         sendJson(request, 200, json);
     });
 
@@ -98,21 +91,27 @@ static void setupServer() {
                 sendError(request, 400, "JSON invalido");
                 return;
             }
-            if (!doc["pin"].is<int>() || !doc["value"].is<int>()) {
-                sendError(request, 400, "campos 'pin' e 'value' obrigatorios");
-                return;
-            }
-            int pin = doc["pin"].as<int>();
-            if (pin != PIN_MEM2) {
-                sendError(request, 400, "apenas pin 1 e gravavel");
-                return;
+            bool has_pin   = doc["pin"].is<int>();
+            bool has_value = doc["value"].is<int>();
+            int pin = has_pin ? doc["pin"].as<int>() : 0;
+
+            WriteValidation result = validate_write_params(has_pin, has_value, pin);
+            switch (result) {
+                case WRITE_ERR_PIN_MISSING:
+                case WRITE_ERR_VALUE_MISSING:
+                    sendError(request, 400, "campos 'pin' e 'value' obrigatorios");
+                    return;
+                case WRITE_ERR_PIN_NOT_WRITABLE:
+                    sendError(request, 400, "apenas pin 1 e gravavel");
+                    return;
+                case WRITE_OK:
+                    break;
             }
             int val = doc["value"].as<int>() ? 1 : 0;
             digitalWrite(pin, val);
-            pinState[pin]     = val;
-            pinTimestamp[pin]  = millis();
+            pin_state_set(&store, pin, val, millis());
             char json[48];
-            snprintf(json, sizeof(json), "{\"pin\":%d,\"value\":%d}", pin, val);
+            fmt_json_write(json, sizeof(json), pin, val);
             sendJson(request, 200, json);
         }
     );
@@ -120,9 +119,7 @@ static void setupServer() {
     // GET /status
     server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
         char json[64];
-        snprintf(json, sizeof(json),
-                 "{\"heap\":%u,\"uptime_ms\":%lu}",
-                 ESP.getFreeHeap(), millis());
+        fmt_json_status(json, sizeof(json), ESP.getFreeHeap(), millis());
         sendJson(request, 200, json);
     });
 
@@ -147,10 +144,9 @@ void setup() {
     pinMode(PIN_BLOCK, INPUT_PULLDOWN);
 
     // Estado inicial
-    pinState[PIN_MEM2]      = LOW;
-    pinTimestamp[PIN_MEM2]   = millis();
-    pinState[PIN_BLOCK]     = digitalRead(PIN_BLOCK);
-    pinTimestamp[PIN_BLOCK]  = millis();
+    pin_state_init(&store);
+    pin_state_set(&store, PIN_MEM2, LOW, millis());
+    pin_state_set(&store, PIN_BLOCK, digitalRead(PIN_BLOCK), millis());
 
     setupWiFi();
     setupMDNS();
@@ -162,10 +158,6 @@ void loop() {
     static unsigned long lastPoll = 0;
     if (millis() - lastPoll >= 10) {
         lastPoll = millis();
-        int current = digitalRead(PIN_BLOCK);
-        if (current != pinState[PIN_BLOCK]) {
-            pinState[PIN_BLOCK]    = current;
-            pinTimestamp[PIN_BLOCK] = millis();
-        }
+        pin_state_update(&store, PIN_BLOCK, digitalRead(PIN_BLOCK), millis());
     }
 }

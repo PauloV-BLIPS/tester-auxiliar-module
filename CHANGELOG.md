@@ -7,6 +7,16 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Adicionado
+
+- Biblioteca `gpio_logic` (`lib/gpio_logic/`) com lógica pura de validação de pinos, gerenciamento de estado e formatação JSON.
+- 24 testes unitários com Unity rodando no desktop (`pio test -e native`).
+- Ambiente `[env:native]` no `platformio.ini` para testes sem hardware.
+
+### Alterado
+
+- `src/main.cpp` refatorado para usar funções de `gpio_logic` em vez de lógica inline.
+
 ## [0.1.3] - 2026-04-08
 
 ### Corrigido

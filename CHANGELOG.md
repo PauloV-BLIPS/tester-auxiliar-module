@@ -7,6 +7,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-04-08
+
 ### Alterado
 
 - Estrutura do projeto movida de `neuronio-aux/` para a raiz do repositório.
